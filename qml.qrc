@@ -1,0 +1,15 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>Page1Form.ui.qml</file>
+        <file>Page2Form.ui.qml</file>
+        <file>qtquickcontrols2.conf</file>
+    </qresource>
+    <qresource prefix="/images">
+        <file alias="door_open">Images/karma-automotive-sc1-vision-concept-oficial-201956568-1555423004_3.jpg</file>
+        <file alias="door_close">Images/karma-sc1-vision-concept.jpg</file>
+    </qresource>
+    <qresource prefix="/icons">
+        <file alias="car-door">Icons/material_white/car-door.png</file>
+    </qresource>
+</RCC>
