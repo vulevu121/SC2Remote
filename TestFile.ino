@@ -1,14 +1,26 @@
+#include "BluetoothSerial.h"
+#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
+#error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
+#endif
+
+const int DriverSwitch = 34;
+const int PassengerSwitch = 39;
+
+BluetoothSerial SerialBT;
+
 void setup() {
   Serial.begin(9600);
+  SerialBT.begin("ESP32test"); //Bluetooth device name
+  Serial.println("The device started, now you can pair it with bluetooth!");
+  pinMode(DriverSwitch, INPUT);
+  pinMode(PassengerSwitch, INPUT);
 }
 
 void loop() {
-  if(Serial.available() >0) {
+  if(SerialBT.available() >0) {
+    Serial.write(SerialBT.read());
     String input = Serial.readString();
-    //String acp = Serial.readString();
-    //String aod = Serial.readString();
-    //String aop = Serial.readString();
-    
+
     if(input == "Auto close driver\n"){
       autoclose_driver();   
     }
@@ -21,11 +33,37 @@ void loop() {
     else if(input == "Auto open passenger\n"){
       autoopen_passenger();
     }
-
     else {
-      Serial.println("Please input valid command");
+      Serial.println("Please input valid command\n");
     }
-}
+  }
+
+// Driver side switch function (Two switches, one itnernl and one external). See schematic
+  int Driver_Switch_State = digitalRead(DriverSwitch);
+  if (Driver_Switch_State == HIGH) {
+    // the function here will depend on the current getFeedback from the actuator. If the motor actuator
+    // feedback is below the half actuated threshold then it should open, otherwise if it is past halfway
+    // it will setTarget == 0 which is closed.
+    Serial.println("Driver switch has been pressed, close or open door depending on feedback position");
+    delay(500);
+  }
+  else {
+    Serial.println("Do nothing");
+    delay(500);
+  }
+
+// Passenger side switch function (Two switches, one internal and one external). See schematic
+  int Passenger_Switch_State = digitalRead(PassengerSwitch);
+  if (Passenger_Switch_State == HIGH) {
+    // the function here will depend on the current getFeedback from the actuator. If the motor actuator
+    // feedback is below the half actuated threshold then it should open, otherwise if it is past halfway
+    // it will setTarget == 0 which is closed.
+    Serial.println("Passenger switch has been pressed, close or open door depending on feedback position");
+    delay(500);
+  }
+  else {
+    Serial.println("Do Nothing");
+  }
 }
 
 void autoclose_driver(){
@@ -47,3 +85,5 @@ void autoopen_passenger(){
   delay(1000);
   Serial.println("now opening passenger door");
 }
+
+// need functions for momentary button switches
