@@ -5,6 +5,7 @@
 
 const int DriverSwitch = 34;
 const int PassengerSwitch = 39;
+String inData;
 
 BluetoothSerial SerialBT;
 
@@ -17,27 +18,34 @@ void setup() {
 }
 
 void loop() {
-  if(SerialBT.available() >0) {
-    Serial.write(SerialBT.read());
-    String input = Serial.readString();
+  while (SerialBT.available() >0) 
+  {
+    char received = SerialBT.read();
+    inData += received;
 
-    if(input == "Auto close driver\n"){
-      autoclose_driver();   
+    if (received == '\n')
+    {
+      Serial.println(inData);
+      
+      if(inData == "Auto close driver\n"){
+        autoclose_driver();   
+      }
+      else if(inData == "Auto close passenger\n") {
+        autoclose_passenger();
+      }
+      else if(inData == "Auto open driver\n"){
+        autoopen_driver();
+      }
+      else if(inData == "Auto open passenger\n"){
+        autoopen_passenger();
+      }
+      else {
+        Serial.println("Please input valid command\n");
     }
-    else if(input == "Auto close passenger\n") {
-      autoclose_passenger();
-    }
-    else if(input == "Auto open driver\n"){
-      autoopen_driver();
-    }
-    else if(input == "Auto open passenger\n"){
-      autoopen_passenger();
-    }
-    else {
-      Serial.println("Please input valid command\n");
+    inData = ""; //Clear received buffer
     }
   }
-
+  
 // Driver side switch function (Two switches, one itnernl and one external). See schematic
   int Driver_Switch_State = digitalRead(DriverSwitch);
   if (Driver_Switch_State == HIGH) {
