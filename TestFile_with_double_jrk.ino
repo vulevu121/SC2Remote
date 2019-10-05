@@ -1,39 +1,40 @@
-#include "BluetoothSerial.h"
-#include <JrkG2.h>
+#include "BluetoothSerial.h" //Library for Bluetooth Serial communication
+#include <JrkG2.h> // Library for the 18v27 Jrk Pololu motor controller
 
 #if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
 #error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
 #endif
 
-const int DriverSwitch = 34;
-const int PassengerSwitch = 39;
-String inData;
+#define jrkSerial Serial2 //ESP32 Serial1 is used internally in the board, use Serial2 instead (GPIO 16,17) 
 
-#define jrkSerial Serial2
+JrkG2Serial jrk1(jrkSerial, 11); //Jrk1 defines device number "11" - Driver
+JrkG2Serial jrk2(jrkSerial, 12); //Jrk2 defines device number "12" - Passenger
 
-JrkG2Serial jrk1(jrkSerial, 11);
-JrkG2Serial jrk2(jrkSerial, 12);
+BluetoothSerial SerialBT; 
 
-BluetoothSerial SerialBT;
+const int DriverSwitch = 34; //Driver Door internal/external switch GPIO to ESP32 board
+const int PassengerSwitch = 39; //Passenger Door internal/external switch GPIO to ESP32 board
+String inData; //String variable name to take input from SerialBT command
+enum ascii {K = 75, O = 79}; // ASCII format for unsigned int for SerialBT.write 
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(9600); //Initialize baud rate for serial comm
   SerialBT.begin("ESP32test"); //Bluetooth device name
   Serial.println("The device started, now you can pair it with bluetooth!");
-  pinMode(DriverSwitch, INPUT);
-  pinMode(PassengerSwitch, INPUT);
-  jrkSerial.begin(9600);
+  pinMode(DriverSwitch, INPUT); //Define driver switch as an input
+  pinMode(PassengerSwitch, INPUT); //Define passenger switch as an input
+  jrkSerial.begin(9600); //Initialize baud rate for bluetooth serial comm
 }
 
 void loop() {
-  while (SerialBT.available() >0) 
+  while (SerialBT.available() >0) //When serial bluetooh is available
   {
-    char received = SerialBT.read();
-    inData += received;
+    char received = SerialBT.read(); //SerialBT receives one char
+    inData += received; // all receive char will be parsed as an input
 
-    if (received == '\n')
+    if (received == '\n') //if received data returns new line ending, compare input for proper command functions
     {
-      Serial.println(inData);
+      Serial.println(inData); //Print the received command
       
       if(inData == "Auto close driver\n"){
         autoclose_driver();   
@@ -52,6 +53,24 @@ void loop() {
       }
       else if(inData == "Auto open both\n"){
         autoopen_both();
+      }
+      else if(inData == "Manual driver open\n"){
+        on_press_driver_open();
+      }
+      else if(inData == "Manual driver close\n"){
+        on_press_driver_close();
+      }
+      else if (inData == "Manual driver stop\n"){
+        on_release_driver();
+      }
+      else if (inData == "Manual passenger open\n"){
+        on_press_passenger_open();
+      }
+      else if (inData == "Manual passenger close\n"){
+        on_press_passenger_close();
+      }
+      else if (inData == "Manual passenger stop\n"){
+        on_release_passenger();
       }
       else {
         Serial.println("Please input valid command\n");
@@ -72,8 +91,9 @@ void loop() {
     jrk1.setTarget(2400);
   }
   else {
-    Serial.println("Do nothing");
-    delay(500);
+  uint8_t msg[] = {86, 85, 32, 74,85, 73,67, 69}; // Message feedback to phone
+  SerialBT.write(msg, 8);
+  delay(3000);
   }
 
 // Passenger side switch function (Two switches, one internal and one external). See schematic
@@ -93,48 +113,99 @@ void loop() {
 }
 
 void autoclose_driver(){
-  Serial.println("now closing driver door");
-  jrk1.setTarget(2400);
-  delay(500);
+jrk1.setTarget(2400);
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
+SerialBT.write(msg, 2);
+Serial.println("Command to auto close driver has been initiated");
+delay(500);
 }
 
 void autoclose_passenger(){
-  Serial.println("now closing passenger door");
-  jrk2.setTarget(2400);
-  delay(3000);
-  jrk2.setTarget(2200);
+jrk2.setTarget(2400);
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
+SerialBT.write(msg, 2);
+Serial.println("Command to auto close passenger door has been initiated");
+delay(500);
 }
 
 void autoopen_driver(){
-  Serial.println("now opening driver door");
-  delay(500);
-  jrk1.setTarget(1600);
+jrk1.setTarget(1600);
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
+SerialBT.write(msg, 2);
+Serial.println("Command to auto open driver door has been initiated");
+delay(500);
 }
 
 void autoopen_passenger(){
-  Serial.println("now opening passenger door");
-  delay(500);
-  jrk2.setTarget(1600);
+jrk2.setTarget(1600);
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
+SerialBT.write(msg, 2);
+Serial.println("Command to auto open passenger door has been initiated");
+delay(500);
 }
 
 void autoopen_both(){
-  Serial.println("Both doors are now opening");
-  delay(500);
-  jrk1.setTarget(1600);
-  jrk2.setTarget(1600);
+jrk1.setTarget(1600);
+jrk2.setTarget(1600);
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
+SerialBT.write(msg, 2);
+Serial.println("Command to auto open both doors has been initiated");
+delay(500);
 }
 
 void autoclose_both(){
-  Serial.println("Both doors are now closing");
-  delay(500);
-  jrk1.setTarget(2400);
-  jrk2.setTarget(2400);
+jrk1.setTarget(2400);
+jrk2.setTarget(2400);
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
+SerialBT.write(msg, 2);
+Serial.println("Command to auto close both doors has been initiated");
+delay(500);
 }
 
-//Momentary Driver side switch
-//While button press or serial command is true
-//increment the setTarget position? 
+void on_press_driver_open(){ //Command to open driver door manually
+jrk1.setTarget(2400);
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
+SerialBT.write(msg, 2);
+Serial.println("Command to open driver door manually initiated");
+delay(500);
+}
 
-//Momentary Passenger side switch
-//While button press or serial command is true
-//increment the setTarget position? 
+void on_press_driver_close(){ //Command to close driver door manually
+jrk1.setTarget(1600);
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
+SerialBT.write(msg, 2);
+Serial.println("Command to close driver door manually initiated");
+delay(500);
+}
+
+void on_release_driver(){ //Command to stop the motor when button press is released for Driver
+jrk1.stopMotor();
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
+SerialBT.write(msg, 2);
+Serial.println("Command to stop driver door manually initiated");
+delay(500);
+}
+
+void on_press_passenger_open(){ //Command to open passenger door manually
+jrk2.setTarget(2400);
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
+SerialBT.write(msg, 2);
+Serial.println("Command to opem passenger door manually initiated");
+delay(500);
+}
+
+void on_press_passenger_close(){ //Command to close passenger door manually 
+jrk2.setTarget(1600);
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
+SerialBT.write(msg, 2);
+Serial.println("Command to close passenger door manually initiated");
+delay(500);
+}
+
+void on_release_passenger(){ //Command to stop the motor when button press is released for Passenger
+jrk2.stopMotor();
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
+SerialBT.write(msg, 2);
+Serial.println("Command to stop passenger door manually initiated");
+delay(500);
+}
