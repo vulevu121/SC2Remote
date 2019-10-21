@@ -27,7 +27,7 @@ const int hydraulic_up_relay = 33; // Relay to control hydraulic motor vehicle s
 const int hydraulic_down_relay = 27; // Relay to control hydraulic motor vehicle suspension down movement
 
 String inData; //String variable name to take input from SerialBT command
-enum ascii {K = 75, O = 79, P = 50, E =45, N = 78, C = 67, L = 76, S=83}; // ASCII format for unsigned int for SerialBT.write 
+enum ascii {F = 70, K = 75, O = 79, P = 50, E =45, N = 78, C = 67, L = 76, S=83}; // ASCII format for unsigned int for SerialBT.write 
 
 void setup() {
   Serial.begin(9600); //Initialize baud rate for serial comm
@@ -104,7 +104,7 @@ void loop() {
       {
         Serial.println("Automatic close both doors");
         autoclose_both();
-        delay(2000);
+        delay(500);
       }
       
       //-------Auto open both door control-------------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ void loop() {
       {
         Serial.println("Manual close driver door");
         on_press_driver_close();
-        delay(2000);
+        delay(500);
       }
 
       //-----Manual driver door stop control-----------------------------------------------------------------------------------
@@ -144,7 +144,7 @@ void loop() {
       {
         Serial.println("Manual stop driver door");
         on_release_driver();
-        delay(2000);
+        delay(500);
       }
 
       //-----Manual open passenger door control--------------------------------------------------------------------------------
@@ -153,7 +153,7 @@ void loop() {
       {
         Serial.println("Manual open passenger door");
         on_press_passenger_open();
-        delay(2000);
+        delay(500);
       }
         
       //-----Manual close passenger door control-------------------------------------------------------------------------------
@@ -161,7 +161,7 @@ void loop() {
       {
         Serial.println("Manual close passenger door");
         on_press_passenger_close();
-        delay(2000);
+        delay(500);
       }
 
       //-----Manual passenger stop control-------------------------------------------------------------------------------------
@@ -169,7 +169,32 @@ void loop() {
       {
         Serial.println("Manual stop passenger door");
         on_release_passenger();
-        delay(2000);
+        delay(500);
+      }
+
+      //----Relay to initiate suspension going up motion-----------------------------------------------------------------------
+      else if (inData == "Hydraulic Up\n")
+      {
+         hydraulic_up_direction();
+      }
+
+      //----Relay to initiate suspension going down motion---------------------------------------------------------------------
+       
+      else if (inData == "Hydraulic Down\n")
+      {
+        hydraulic_down_direction();
+      }
+
+      //----Stop hydraulic suspension movements--------------------------------------------------------------------------------
+      
+      else if (inData == "Hydraulic Stop\n")
+      {
+        hydraulic_stop();
+      }
+
+      else if (inData == "Door Status?\n")
+      {
+        door_status();
       }
 
       //-----Invalid command---------------------------------------------------------------------------------------------------
@@ -205,7 +230,7 @@ void loop() {
   }
   else {
     Serial.println("Waiting");
-    driver_motor_stat();
+    //driver_motor_stat();
     //jrk1.stopMotor();
     delay(500);
   }
@@ -226,7 +251,6 @@ void loop() {
     //delay(2000);
     //Serial.println("Do Nothing");
   }
-
   
 }
 
@@ -234,6 +258,8 @@ void loop() {
 //--------------------------------------------List of functions for main loop--------------------------------------------------
 
 void autoclose_driver(){
+jrk1.stopMotor();
+delay(300);
 jrk1.setTarget(128);
 uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
 SerialBT.write(msg, 2);
@@ -242,6 +268,8 @@ delay(500);
 }
 
 void autoclose_passenger(){
+jrk2.stopMotor();
+delay(300);
 jrk2.setTarget(1600);
 uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
 SerialBT.write(msg, 2);
@@ -250,6 +278,8 @@ delay(500);
 }
 
 void autoopen_driver(){
+jrk1.stopMotor();
+delay(300);
 jrk1.setTarget(3482);
 uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
 SerialBT.write(msg, 2);
@@ -258,6 +288,8 @@ delay(500);
 }
 
 void autoopen_passenger(){
+jrk2.stopMotor();
+delay(300);
 jrk2.setTarget(2400);
 uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
 SerialBT.write(msg, 2);
@@ -266,15 +298,21 @@ delay(500);
 }
 
 void autoopen_both(){
+jrk1.stopMotor();
+jrk2.stopMotor();
+delay(300);
 jrk1.setTarget(3482);
 jrk2.setTarget(2400);
-uint8_t msg[] = {'O', 'Kn'}; // Message feedback to phone
+uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
 SerialBT.write(msg, 2);
 Serial.println("Command to auto open both doors has been initiated");
 delay(500);
 }
 
 void autoclose_both(){
+jrk1.stopMotor();
+jrk2.stopMotor();
+delay(300);
 jrk1.setTarget(128);
 jrk2.setTarget(1600);
 uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
@@ -331,18 +369,18 @@ Serial.println("Command to stop passenger door manually initiated");
 delay(500);
 }
 
-void driver_motor_stat()
-{
-  uint16_t driver_feedback = jrk1.getScaledFeedback();
-  if (driver_feedback > 3300){
-  uint8_t msg[] = {'O', 'P', 'E', 'N'};
-  SerialBT.write(msg,4);
-  }
-  else if (driver_feedback < 3300){
-  uint8_t msg[] = {'C', 'L', 'O', 'S', 'E'};
-  SerialBT.write(msg,5);
-  }
-}
+//void driver_motor_stat()
+//{
+//  uint16_t driver_feedback = jrk1.getScaledFeedback();
+//  if (driver_feedback > 3300){
+//  uint8_t msg[] = {'O', 'P', 'E', 'N'};
+//  SerialBT.write(msg,4);
+//  }
+//  else if (driver_feedback < 3300){
+//  uint8_t msg[] = {'C', 'L', 'O', 'S', 'E'};
+//  SerialBT.write(msg,5);
+//  }
+//}
 
 void driver_door_latch_open(){
   digitalWrite(DriverDoorLatch, LOW);
@@ -383,5 +421,50 @@ void hydraulic_down_direction(){
 void hydraulic_stop(){
   digitalWrite(hydraulic_up_relay, HIGH);
   digitalWrite(hydraulic_down_relay, HIGH);
+  Serial.println("Stop hydraulic suspension initiated");
   delay(100);
+}
+
+void door_status(){
+  //uint16_t driver_feedback = jrk1.getScaledFeedback();
+  float driver_feedback = 1200; // test value
+  //uint16_t passenger_feedback = jrk2.getScaledFeedback();
+  float passenger_feedback = 3400; // test value
+  float driver_max_pos = 3400;
+  float pass_max_pos = 3400;
+  
+  float scaled_driver_max_pos = ((driver_feedback/driver_max_pos) * 100);
+  int scaled_driver_max_pos_int = round(scaled_driver_max_pos);
+
+  float scaled_passenger_max_pos = ((passenger_feedback/pass_max_pos) * 100);
+  int scaled_passenger_max_pos_int = round(scaled_passenger_max_pos);
+  
+  //Serial.println(scaled_driver_max_pos_int);
+  
+  char copy[25];
+  String drvr_max_pos;
+  
+  drvr_max_pos = String(scaled_driver_max_pos_int); 
+  //Serial.println(str1);
+  drvr_max_pos.toCharArray(copy,25);
+  //Serial.println(str1.length());
+  //Serial.println(str1);
+  uint8_t front_left[] = {'F','L'};
+  SerialBT.write(front_left,2);
+  for (int i=0; i < drvr_max_pos.length(); i++){
+    char drvr = drvr_max_pos[i];
+    uint8_t drvr_max_pos_val[] = {drvr};
+    SerialBT.write(drvr_max_pos_val,1);
+  }
+  
+  String psngr_max_pos;
+  psngr_max_pos = String(scaled_passenger_max_pos_int);
+  psngr_max_pos.toCharArray(copy,25);
+  uint8_t front_right[] = {'F','R'};
+  SerialBT.write(front_right,2);
+  for (int i=0; i < psngr_max_pos.length(); i++){
+    char psngr = psngr_max_pos[i];
+    uint8_t psngr_max_pos_val[] = {psngr};
+    SerialBT.write(psngr_max_pos_val,1);
+  }
 }
