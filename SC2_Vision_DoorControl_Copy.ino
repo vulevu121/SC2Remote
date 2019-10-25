@@ -62,7 +62,8 @@ void loop()
  passenger_resistance_detection();//Constant check for additional resistance (Autostop if current exceeds normal condition)
  driver_moving_check(); //Constant check for driver moving flag
  passenger_moving_check(); //Constant check for driver moving flag
- 
+// cyclic_dummy_msg();
+ door_status();
  while (SerialBT.available() >0) //While serial bluetooh is available, listen for defined commands
   {
    char received = SerialBT.read(); //SerialBT receives one char
@@ -205,7 +206,7 @@ void loop()
 //      }
       
       //------Manual open driver door control----------------------------------------------------------------------------------
-      else if(inData == "Manual driver open\n")
+      else if(inData == "Manual open driver\n")
       {
        on_press_driver_open();
       }
@@ -235,17 +236,17 @@ void loop()
 //      }
 
       //-----Manual close driver door control----------------------------------------------------------------------------------
-      else if(inData == "Manual driver close\n")
+      else if(inData == "Manual close driver\n")
       {
        on_press_driver_close();
       }
       //-----Manual driver door stop control-----------------------------------------------------------------------------------
-      else if (inData == "Manual driver stop\n")
+      else if (inData == "Manual stop driver\n")
       {
        on_release_driver();
       }
       //-----Manual open passenger door control--------------------------------------------------------------------------------
-      else if (inData == "Manual passenger open\n")
+      else if (inData == "Manual open passenger\n")
       {
        on_press_passenger_open();
       }
@@ -275,12 +276,12 @@ void loop()
 //      }
         
       //-----Manual close passenger door control-------------------------------------------------------------------------------
-      else if (inData == "Manual passenger close\n")
+      else if (inData == "Manual close passenger\n")
       {
        on_press_passenger_close();
       }
       //-----Manual passenger stop control-------------------------------------------------------------------------------------
-      else if (inData == "Manual passenger stop\n")
+      else if (inData == "Manual stop passenger\n")
       {
        on_release_passenger();
       }
@@ -304,7 +305,7 @@ void loop()
       {
        door_status();
       }
-      else if (inData == "System status\n")
+      else if (inData == "System status?\n")
       {
        error_feedback();
       }
@@ -348,8 +349,7 @@ void autoclose_driver(){ //Command to auto close driver door
 jrk1.stopMotor();  
 delay(1000);
 jrk1.setTarget(Driver_close_target);
-uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
-SerialBT.write(msg, 2);
+feedbackmsg("Auto close driver ok\n");
 Serial.println("Command to auto close driver has been initiated");
 driver_moving = true;
 delay(50);
@@ -359,8 +359,7 @@ void autoclose_passenger(){ //Command to autoclose passenger door
 jrk2.stopMotor();
 delay(1000);
 jrk2.setTarget(Passenger_close_target);
-uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
-SerialBT.write(msg, 2);
+feedbackmsg("Auto close passenger ok\n");
 Serial.println("Command to auto close passenger door has been initiated");
 passenger_moving = true;
 delay(50);
@@ -370,8 +369,7 @@ void autoopen_driver(){ //Command to auto open driver door
 jrk1.stopMotor();
 delay(1000);
 jrk1.setTarget(Driver_open_target);
-uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
-SerialBT.write(msg, 2);
+feedbackmsg("Auto open driver ok\n");
 Serial.println("Command to auto open driver door has been initiated");
 driver_moving = true;
 delay(50);
@@ -381,8 +379,7 @@ void autoopen_passenger(){ //Command to auto open passenger door
 jrk2.stopMotor();
 delay(1000);
 jrk2.setTarget(Passenger_open_target);
-uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
-SerialBT.write(msg, 2);
+feedbackmsg("Auto open passenger ok\n");
 Serial.println("Command to auto open passenger door has been initiated");
 passenger_moving = true;
 delay(50);
@@ -394,8 +391,7 @@ jrk2.stopMotor();
 delay(1000);
 jrk1.setTarget(Driver_open_target);
 jrk2.setTarget(Passenger_open_target);
-uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
-SerialBT.write(msg, 2);
+feedbackmsg("Auto open both ok\n");
 Serial.println("Command to auto open both doors has been initiated");
 driver_moving = true;
 passenger_moving = true;
@@ -408,8 +404,7 @@ jrk2.stopMotor();
 delay(1000);
 jrk1.setTarget(Driver_close_target);
 jrk2.setTarget(Passenger_close_target);
-uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
-SerialBT.write(msg, 2);
+feedbackmsg("Auto close both ok\n");
 Serial.println("Command to auto close both doors has been initiated");
 driver_moving = true;
 passenger_moving = true;
@@ -418,8 +413,7 @@ delay(50);
 
 void on_press_driver_open(){ //Command to open driver door manually
 jrk1.setTarget(Driver_open_target);
-uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
-SerialBT.write(msg, 2);
+feedbackmsg("Manual open driver ok\n");
 Serial.println("Command to open driver door manually initiated");
 driver_moving = true;
 delay(50);
@@ -427,8 +421,7 @@ delay(50);
 
 void on_press_driver_close(){ //Command to close driver door manually
 jrk1.setTarget(Driver_close_target);
-uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
-SerialBT.write(msg, 2);
+feedbackmsg("Manual close driver ok\n");
 Serial.println("Command to close driver door manually initiated");
 driver_moving = true;
 delay(50);
@@ -436,8 +429,7 @@ delay(50);
 
 void on_release_driver(){ //Command to stop the motor when button press is released for Driver
 jrk1.stopMotor();
-uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
-SerialBT.write(msg, 2);
+feedbackmsg("Manual stop driver ok\n");
 Serial.println("Command to stop driver door manually initiated");
 driver_moving = false;
 delay(50);
@@ -445,8 +437,7 @@ delay(50);
 
 void on_press_passenger_open(){ //Command to open passenger door manually
 jrk2.setTarget(Passenger_open_target);
-uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
-SerialBT.write(msg, 2);
+feedbackmsg("Manual open passenger ok\n");
 Serial.println("Command to opem passenger door manually initiated");
 passenger_moving = true;
 delay(50);
@@ -454,8 +445,7 @@ delay(50);
 
 void on_press_passenger_close(){ //Command to close passenger door manually 
 jrk2.setTarget(Passenger_close_target);
-uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
-SerialBT.write(msg, 2);
+feedbackmsg("Manual close passenger ok\n");
 Serial.println("Command to close passenger door manually initiated");
 passenger_moving = true;
 delay(50);
@@ -463,8 +453,7 @@ delay(50);
 
 void on_release_passenger(){ //Command to stop the motor when button press is released for Passenger
 jrk2.stopMotor();
-uint8_t msg[] = {'O', 'K'}; // Message feedback to phone
-SerialBT.write(msg, 2);
+feedbackmsg("Manual stop passenger ok\n");
 Serial.println("Command to stop passenger door manually initiated");
 passenger_moving = false;
 delay(50);
@@ -543,6 +532,7 @@ void hydraulic_up_direction(){ //Hydraulic pump up direction command
   digitalWrite(hydraulic_down_relay, HIGH);
   delay(50);
   digitalWrite(hydraulic_up_relay, LOW);
+  feedbackmsg("Hydraulic pump up ok\n");
   Serial.println("Opened pump relay down for safety, now moving UP");
   delay(50); 
 }
@@ -551,6 +541,7 @@ void hydraulic_down_direction(){ //Hydraulic pump down direction command
   digitalWrite(hydraulic_up_relay, HIGH);
   delay(50);
   digitalWrite(hydraulic_down_relay, LOW);
+  feedbackmsg("Hydraulic pump down ok\n");
   Serial.println("Opened pump relay up for safety, now moving DOWN");
   delay(50);
 }
@@ -558,16 +549,18 @@ void hydraulic_down_direction(){ //Hydraulic pump down direction command
 void hydraulic_stop(){ //Hydraulic pump stop command
   digitalWrite(hydraulic_up_relay, HIGH);
   digitalWrite(hydraulic_down_relay, HIGH);
+  feedbackmsg("Hydraulic pump stop ok\n");
   Serial.println("Stop hydraulic pump initiated");
   delay(50);
 }
 
 //--------------------------------------------Door Status Feedback ---------------------------------------------------------------
+
 void door_status(){
-  uint16_t driver_feedback = jrk1.getScaledFeedback();
-  //float driver_feedback = 1200; // test value
-  uint16_t passenger_feedback = jrk2.getScaledFeedback();
-  //float passenger_feedback = 3400; // test value
+  //uint16_t driver_feedback = jrk1.getScaledFeedback();
+  float driver_feedback = 1100; // test value
+  //uint16_t passenger_feedback = jrk2.getScaledFeedback();
+  float passenger_feedback = 2800; // test value
   float driver_max_pos = Driver_open_target;
   float pass_max_pos = Driver_open_target;
   float scaled_driver_max_pos = ((driver_feedback/driver_max_pos) * 100);
@@ -577,24 +570,9 @@ void door_status(){
   char copy[25];
   String drvr_max_pos;
   drvr_max_pos = String(scaled_driver_max_pos_int); 
-  drvr_max_pos.toCharArray(copy,25);
-  uint8_t front_left[] = {'F','L'};
-  SerialBT.write(front_left,2);
-  for (int i=0; i < drvr_max_pos.length(); i++){
-    char drvr = drvr_max_pos[i];
-    uint8_t drvr_max_pos_val[] = {drvr};
-    SerialBT.write(drvr_max_pos_val,1);
-  }
   String psngr_max_pos;
   psngr_max_pos = String(scaled_passenger_max_pos_int);
-  psngr_max_pos.toCharArray(copy,25);
-  uint8_t front_right[] = {',','F','R'};
-  SerialBT.write(front_right,3);
-  for (int i=0; i < psngr_max_pos.length(); i++){
-    char psngr = psngr_max_pos[i];
-    uint8_t psngr_max_pos_val[] = {psngr};
-    SerialBT.write(psngr_max_pos_val,1);
-  }
+  feedbackmsg("DoorStatus:FL="+drvr_max_pos+','+"FR="+psngr_max_pos+"\n");
 }
 
 //--------------------------------------------System Error Feedback --------------------------------------------------------------
@@ -605,27 +583,23 @@ void error_feedback()
   if (Driver_feedback_state == HIGH)
   {
     Serial.println("Driver side system error, please check system immidiately");
-    uint8_t msg[] = {'F', 'L','_','E','R','R'}; // Message feedback to phone
-    SerialBT.write(msg, 6);
+    feedbackmsg("Driver system error\n");
   }
   else
   {
     Serial.println("Driver side system in good condition");
-    uint8_t msg[] = {'F', 'L','_','G','O','O','D'}; // Message feedback to phone
-    SerialBT.write(msg, 7);   
+    feedbackmsg("Driver system okay\n");
   }
   
   if (Passenger_feedback_state == HIGH)
   {
     Serial.println("Passenger side system error, please check system immidiately");
-    uint8_t msg[] = {',','F','R','_','E','R','R'}; // Message feedback to phone
-    SerialBT.write(msg, 7);
+    feedbackmsg("Passenger system error\n");
   }
   else
   {
     Serial.println("Passenger side system in good condition");
-    uint8_t msg[] = {',','F', 'R','_','G','O','O','D'}; // Message feedback to phone
-    SerialBT.write(msg, 8);
+    feedbackmsg("Passenger system okay\n");
   }
 }
 
@@ -634,12 +608,11 @@ void error_feedback()
 void driver_resistance_detection(){ //Constant check to measure current, auto stop if outside of normal load driver side
   uint16_t driver_current = jrk1.getCurrent();
   //Serial.println(driver_current);
-  if (driver_current > 40000) //4A
+  if (driver_current > 20000) //2A
   {
     jrk1.stopMotor();
     Serial.println("Driver door obstacle detected");
-    uint8_t msg[] = {'F', 'L','_','O','B','S'}; // Message feedback to phone
-    SerialBT.write(msg, 6);
+    feedbackmsg("Driver side obstacle detected\n");
   }
   else
   {   
@@ -648,12 +621,11 @@ void driver_resistance_detection(){ //Constant check to measure current, auto st
 void passenger_resistance_detection(){ //Constant check to measure current, auto stop if outside of normal load passenger side
   uint16_t passenger_current = jrk2.getCurrent();
   //Serial.println(passenger_current);
-  if (passenger_current > 40000) //4A
+  if (passenger_current > 20000) //4A
   {
     jrk2.stopMotor();
     Serial.println("Passenger door obstacle detected");
-    uint8_t msg[] = {'F', 'R','_','O','B','S'}; // Message feedback to phone
-    SerialBT.write(msg, 6);
+    feedbackmsg("Passenger side obstacle detected\n");
   }
   else
   { 
@@ -681,4 +653,15 @@ void passenger_moving_check(){ //Constant flag check for driver switch, will ena
    {
     passenger_moving = false;
    }
+}
+
+void feedbackmsg(String mymessage)
+{
+  char copy[50];
+  mymessage.toCharArray(copy,50);
+  for (int i = 0; i<mymessage.length(); i++){
+    char message = mymessage[i];
+    uint8_t message_send[] = {message};
+    SerialBT.write(message_send, 1);
+  }
 }
