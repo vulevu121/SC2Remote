@@ -8,6 +8,7 @@
 #include "BluetoothSerial.h" //Library for Bluetooth Serial communication
 #include <JrkG2.h> // Library for the 18v27 Jrk Pololu motor controller
 
+
 #if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
 #error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
 #endif
@@ -18,22 +19,25 @@ JrkG2Serial jrk1(jrkSerial, 11); //Jrk1 defines device number "11" - Driver
 JrkG2Serial jrk2(jrkSerial, 12); //Jrk2 defines device number "12" - Passenger
 BluetoothSerial SerialBT; //Initialize BT Serial
 
-
 const int DriverSwitch = 34; //Driver Door internal/external switch GPIO to ESP32 board 
 const int PassengerSwitch = 39; //Passenger Door internal/external switch GPIO to ESP32 board
-const int DriverDoorLatch = 21; //Driver door actuator control, Pull Low to engage
-const int PassengerDoorLatch = 14; //Passenger door actuator control, Pull Low to engage
+const int RearLights = 21; //Driver door actuator control, Pull Low to engage
+const int FrontLights = 14; //Passenger door actuator control, Pull Low to engage
 const int hydraulic_up_relay = 33; // Relay to control hydraulic motor vehicle suspension up movement
 const int hydraulic_down_relay = 27; // Relay to control hydraulic motor vehicle suspension down movement
 const int Driver_error_feedback = 32; //Input pin for Driver Motor error feedback. Will toggle high if system error is detected
 const int Passenger_error_feedback = 15; //Input pin for Pass Motor error feedback. Will toggle high if system error is detected
+const int Driver_open_target = 3700; //Variable to define set target for driver door open
+const int Driver_close_target = 80 ; //Variable to define set target for driver door close
+
+//----LUCY YANG----
+const int Passenger_open_target = 3560; //Variable to define set target for passenger open
+const int Passenger_close_target = 20; //Variable to define set target for passenger close
+//-----------------
+
+
 bool driver_moving = false; //Set flag for driver_moving condition
 bool passenger_moving = false; //Set flag for passenger_moving condition
-const int Driver_open_target = 3400; //Variable to define set target for driver door open
-const int Driver_close_target = 128; //Variable to define set target for driver door close
-const int Passenger_open_target = 3400; //Variable to define set target for passenger open
-const int Passenger_close_target = 128; //Variable to define set target for passenger close
-
 String inData; //Input string from SerialBT command
 
 void setup() //Set up and intialize values
@@ -46,14 +50,15 @@ void setup() //Set up and intialize values
   pinMode(PassengerSwitch, INPUT); //Define passenger switch as an input
   pinMode(Driver_error_feedback, INPUT); //Define driver error feedback as input
   pinMode(Passenger_error_feedback, INPUT); //Define passenger error feedback as input
-  pinMode(DriverDoorLatch, OUTPUT); //Define driver door latch as an ouput
-  pinMode(PassengerDoorLatch, OUTPUT); //Define passenger door latch as an output
+  pinMode(RearLights, OUTPUT); //Define driver door latch as an ouput
+  pinMode(FrontLights, OUTPUT); //Define passenger door latch as an output
   pinMode(hydraulic_up_relay, OUTPUT); //Define motor relay pin as an output
   pinMode(hydraulic_down_relay, OUTPUT); //Define motor relay pin as an output
   digitalWrite(hydraulic_up_relay, HIGH); //Initial State to "High" relay "OFF"
   digitalWrite(hydraulic_down_relay, HIGH); //Initial State to "High" relay "OFF"
-  digitalWrite(DriverDoorLatch,HIGH); //Initial State to "High" relay "OFF"
-  digitalWrite(PassengerDoorLatch,HIGH);  //Initial State to "High" relay "OFF"
+  digitalWrite(FrontLights,HIGH); //Initial State to "High" relay "OFF"
+  digitalWrite(RearLights,HIGH);  //Initial State to "High" relay "OFF"
+//  timerID=timer.setInterval(3000, door_status,50);
 }
 
 void loop() 
@@ -61,8 +66,12 @@ void loop()
  driver_resistance_detection(); //Constant check for additional resistance (Autostop if current exceeds normal condition)
  passenger_resistance_detection();//Constant check for additional resistance (Autostop if current exceeds normal condition)
  driver_moving_check(); //Constant check for driver moving flag
+ //Serial.println(driver_moving);
  passenger_moving_check(); //Constant check for driver moving flag
+ int reverse = jrk1.getMaxAccelerationReverse();
+ Serial.println(reverse);
 // cyclic_dummy_msg();
+// timer.run();
  door_status();
  while (SerialBT.available() >0) //While serial bluetooh is available, listen for defined commands
   {
@@ -71,9 +80,9 @@ void loop()
    if (received == '\n') //if received data returns new line ending, compare input for proper command functions
    {
     Serial.println(inData); //Print the received command for serial monitor
- 
+    
 //-------------------------------------Conditions when certain commands are met -----------------------------------------------
-   
+  
     //-----------Auto close driver door control -----------------------------------------------------------------------------
     if(inData == "Auto close driver\n")
     {
@@ -301,6 +310,30 @@ void loop()
       {
        hydraulic_stop();
       }
+      else if (inData == "Front light on\n")
+      {
+       front_light_on();
+      }
+      else if (inData == "Front light off\n")
+      {
+       front_light_off();
+      }
+      else if (inData == "Rear light on\n")
+      {
+        rear_light_on();
+      }
+      else if (inData == "Rear light off\n")
+      {
+        rear_light_off();
+      }
+      else if (inData == "All lights on\n")
+      {
+        all_lights_on();
+      }
+      else if (inData == "All lights off\n")
+      {
+        all_lights_off();
+      }
       else if (inData == "Door status?\n")
       {
        door_status();
@@ -324,6 +357,7 @@ void loop()
   {
    Serial.println("Driver press detected");
    driver_door_switch();
+   delay(100);
   }
   else 
   {
@@ -335,7 +369,8 @@ void loop()
   {
    Serial.println("Passenger press detected");
    passenger_door_switch();
-  }
+   delay(100);
+  } 
   else 
   {
    // Serial.println("Waiting");
@@ -347,7 +382,10 @@ void loop()
 //--------------------------------------------Door logic controls--------------------------------------------------------------
 void autoclose_driver(){ //Command to auto close driver door
 jrk1.stopMotor();  
-delay(1000);
+delay(500);
+jrk1.setMaxAccelerationReverse(10);
+jrk1.setMaxDecelerationReverse(20);
+jrk1.setMaxDutyCycleReverse(130);
 jrk1.setTarget(Driver_close_target);
 feedbackmsg("Auto close driver ok\n");
 Serial.println("Command to auto close driver has been initiated");
@@ -357,7 +395,10 @@ delay(50);
 
 void autoclose_passenger(){ //Command to autoclose passenger door
 jrk2.stopMotor();
-delay(1000);
+delay(500);
+jrk2.setMaxAccelerationReverse(10);
+jrk2.setMaxDecelerationReverse(20);
+jrk2.setMaxDutyCycleReverse(130);
 jrk2.setTarget(Passenger_close_target);
 feedbackmsg("Auto close passenger ok\n");
 Serial.println("Command to auto close passenger door has been initiated");
@@ -367,7 +408,9 @@ delay(50);
 
 void autoopen_driver(){ //Command to auto open driver door
 jrk1.stopMotor();
-delay(1000);
+delay(500);
+jrk1.setMaxAccelerationForward(20);
+jrk1.setMaxDecelerationForward(90);
 jrk1.setTarget(Driver_open_target);
 feedbackmsg("Auto open driver ok\n");
 Serial.println("Command to auto open driver door has been initiated");
@@ -377,7 +420,9 @@ delay(50);
 
 void autoopen_passenger(){ //Command to auto open passenger door
 jrk2.stopMotor();
-delay(1000);
+delay(500);
+jrk2.setMaxAccelerationForward(10);
+jrk2.setMaxDecelerationForward(90);
 jrk2.setTarget(Passenger_open_target);
 feedbackmsg("Auto open passenger ok\n");
 Serial.println("Command to auto open passenger door has been initiated");
@@ -388,7 +433,11 @@ delay(50);
 void autoopen_both(){ //Command to auto open both doors
 jrk1.stopMotor();
 jrk2.stopMotor();
-delay(1000);
+delay(500);
+jrk1.setMaxAccelerationForward(20);
+jrk1.setMaxDecelerationForward(90);
+jrk2.setMaxAccelerationForward(20);
+jrk2.setMaxDecelerationForward(90);
 jrk1.setTarget(Driver_open_target);
 jrk2.setTarget(Passenger_open_target);
 feedbackmsg("Auto open both ok\n");
@@ -401,7 +450,13 @@ delay(50);
 void autoclose_both(){ //Command to auto close both doors
 jrk1.stopMotor();
 jrk2.stopMotor();
-delay(1000);
+delay(500);
+jrk1.setMaxAccelerationReverse(10);
+jrk1.setMaxDecelerationReverse(20);
+jrk1.setMaxDutyCycleReverse(130);
+jrk2.setMaxAccelerationReverse(10);
+jrk2.setMaxDecelerationReverse(20);
+jrk2.setMaxDutyCycleReverse(130);
 jrk1.setTarget(Driver_close_target);
 jrk2.setTarget(Passenger_close_target);
 feedbackmsg("Auto close both ok\n");
@@ -412,6 +467,8 @@ delay(50);
 }
 
 void on_press_driver_open(){ //Command to open driver door manually
+jrk1.setMaxAccelerationForward(20);
+jrk1.setMaxDecelerationForward(90);
 jrk1.setTarget(Driver_open_target);
 feedbackmsg("Manual open driver ok\n");
 Serial.println("Command to open driver door manually initiated");
@@ -420,10 +477,14 @@ delay(50);
 }
 
 void on_press_driver_close(){ //Command to close driver door manually
+driver_moving = true;
+jrk1.setMaxAccelerationReverse(10);
+jrk1.setMaxDecelerationReverse(20);
+jrk1.setMaxDutyCycleReverse(130);
 jrk1.setTarget(Driver_close_target);
 feedbackmsg("Manual close driver ok\n");
 Serial.println("Command to close driver door manually initiated");
-driver_moving = true;
+Serial.println(driver_moving);
 delay(50);
 }
 
@@ -436,6 +497,8 @@ delay(50);
 }
 
 void on_press_passenger_open(){ //Command to open passenger door manually
+jrk2.setMaxAccelerationForward(20);
+jrk2.setMaxDecelerationForward(90);
 jrk2.setTarget(Passenger_open_target);
 feedbackmsg("Manual open passenger ok\n");
 Serial.println("Command to opem passenger door manually initiated");
@@ -444,6 +507,9 @@ delay(50);
 }
 
 void on_press_passenger_close(){ //Command to close passenger door manually 
+jrk2.setMaxAccelerationReverse(10);
+jrk2.setMaxDecelerationReverse(20);
+jrk2.setMaxDutyCycleReverse(130);
 jrk2.setTarget(Passenger_close_target);
 feedbackmsg("Manual close passenger ok\n");
 Serial.println("Command to close passenger door manually initiated");
@@ -465,22 +531,25 @@ void driver_door_switch(){ //Command when driver door switch is pressed
  {
   jrk1.stopMotor();
   driver_moving = false;
+  delay(200);
  }
  else
  { 
   uint16_t driver_feedback = jrk1.getScaledFeedback();
-  if (driver_feedback > 3300)
+  if (driver_feedback > 3600)
   {
    Serial.println("closing");
    autoclose_driver();
    driver_moving = true;
+   delay(200);
   }
   
-  else if (driver_feedback < 3300)
+  else if (driver_feedback < 3600)
   {
    Serial.println("opening");
    autoopen_driver();
    driver_moving = true;
+   delay(200);
   }
  }
 }
@@ -489,20 +558,25 @@ void passenger_door_switch(){ //Command when passenger door switch is pressed
   {
     jrk2.stopMotor();
     passenger_moving = false;
+    delay(200);
   }
   else{
+
+    //-------------LUCY YANG ------------------------------
     uint16_t passenger_feedback = jrk2.getScaledFeedback(); 
-    if (passenger_feedback > 3300)
+    if (passenger_feedback > 3460)
    {
     Serial.println("closing");
     autoclose_passenger();
     passenger_moving = true;
+    delay(200);
    }
-   else if (passenger_feedback < 3300)
+   else if (passenger_feedback < 3460)
    {
     Serial.println("opening");
     autoopen_passenger();
     passenger_moving = true;
+    delay(200);
    }
   } 
 }
@@ -554,17 +628,76 @@ void hydraulic_stop(){ //Hydraulic pump stop command
   delay(50);
 }
 
+void front_light_on()
+{
+  digitalWrite(FrontLights, LOW);
+  feedbackmsg("Front lights on ok\n");
+  Serial.println("Front lights on");
+  delay(50);
+}
+
+void front_light_off()
+{
+  digitalWrite(FrontLights, HIGH);
+  feedbackmsg("Front light off ok\n");
+  Serial.println("Front lights off");
+  delay(50);
+}
+
+void rear_light_on()
+{
+  digitalWrite(RearLights, LOW);
+  feedbackmsg("Rear light on ok\n");
+  Serial.println("Rear lights on");
+  delay(50);
+}
+
+void rear_light_off()
+{
+  digitalWrite(RearLights, HIGH);
+  feedbackmsg("Rear light off ok\n");
+  Serial.println("Rear lights off");
+  delay(50);
+}
+
+void all_lights_on()
+{
+  digitalWrite(FrontLights, LOW);
+  delay(20);
+  digitalWrite(RearLights, LOW);
+  feedbackmsg(" All lights on ok\n");
+  Serial.println("All lights are on");
+  delay(50);
+}
+
+void all_lights_off()
+{
+  digitalWrite(FrontLights, HIGH);
+  delay(20);
+  digitalWrite(RearLights, HIGH);
+  feedbackmsg("All lights off ok\n");
+  Serial.println("All lights are off");
+  delay(50);  
+}
+
 //--------------------------------------------Door Status Feedback ---------------------------------------------------------------
 
-void door_status(){
-  //uint16_t driver_feedback = jrk1.getScaledFeedback();
-  float driver_feedback = 1100; // test value
-  //uint16_t passenger_feedback = jrk2.getScaledFeedback();
-  float passenger_feedback = 2800; // test value
+void door_status()
+{
+  uint16_t driver_feedback = jrk1.getScaledFeedback();
+  Serial.println("Driver feedback is ");
+  Serial.print(driver_feedback);
+  delay(30);
+  //float driver_feedback = 1100; // test value
+  uint16_t passenger_feedback = jrk2.getScaledFeedback();
+  Serial.println("Passenger feedback is ");
+  Serial.println(passenger_feedback);
+  //float passenger_feedback = 2800; // test value
   float driver_max_pos = Driver_open_target;
   float pass_max_pos = Driver_open_target;
   float scaled_driver_max_pos = ((driver_feedback/driver_max_pos) * 100);
   int scaled_driver_max_pos_int = round(scaled_driver_max_pos);
+  //Serial.println(scaled_driver_max_pos_int);
   float scaled_passenger_max_pos = ((passenger_feedback/pass_max_pos) * 100);
   int scaled_passenger_max_pos_int = round(scaled_passenger_max_pos);
   char copy[25];
@@ -608,7 +741,7 @@ void error_feedback()
 void driver_resistance_detection(){ //Constant check to measure current, auto stop if outside of normal load driver side
   uint16_t driver_current = jrk1.getCurrent();
   //Serial.println(driver_current);
-  if (driver_current > 20000) //2A
+  if (driver_current > 40000) //40A
   {
     jrk1.stopMotor();
     Serial.println("Driver door obstacle detected");
@@ -621,7 +754,7 @@ void driver_resistance_detection(){ //Constant check to measure current, auto st
 void passenger_resistance_detection(){ //Constant check to measure current, auto stop if outside of normal load passenger side
   uint16_t passenger_current = jrk2.getCurrent();
   //Serial.println(passenger_current);
-  if (passenger_current > 20000) //4A
+  if (passenger_current > 40000) //40A
   {
     jrk2.stopMotor();
     Serial.println("Passenger door obstacle detected");
@@ -634,22 +767,24 @@ void passenger_resistance_detection(){ //Constant check to measure current, auto
 //--------------------------------------------Moving Flag Check ------------------------------------------------------------------
 void driver_moving_check(){ //Constant flag check for driver switch, will enable to use physical switch as stop button
    uint16_t driver_feedback = jrk1.getScaledFeedback(); 
-   if (driver_feedback >= 3300)
+   if (driver_feedback > 3650)
    {
     driver_moving = false;
    }
-   else if (driver_feedback >= 110 && driver_feedback <= 130)
+   else if (driver_feedback < 100)
    {
     driver_moving = false;
    }
 }
+
+// Lucy Yang --------------------------------
 void passenger_moving_check(){ //Constant flag check for driver switch, will enable to use physical switch as stop button
    uint16_t passenger_feedback = jrk2.getScaledFeedback(); 
-   if (passenger_feedback >= 3300)
+   if (passenger_feedback > 3460)
    {
     passenger_moving = false;
    }
-   else if (passenger_feedback >= 110 && passenger_feedback <= 130)
+   else if (passenger_feedback < 100)
    {
     passenger_moving = false;
    }
@@ -662,6 +797,6 @@ void feedbackmsg(String mymessage)
   for (int i = 0; i<mymessage.length(); i++){
     char message = mymessage[i];
     uint8_t message_send[] = {message};
-    SerialBT.write(message_send, 1);
+    SerialBT.write(message_send,1);
   }
 }
